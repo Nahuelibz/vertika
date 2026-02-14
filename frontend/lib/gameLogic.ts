@@ -52,8 +52,42 @@ export function initializeGame(config: GameConfig): GameState {
 }
 
 function generateBlockers(boardSize: number): Blocker[] {
+  const blockers: Blocker[] = [];
+  const centerStart = Math.floor(boardSize / 3);
+  const centerEnd = boardSize - centerStart;
+  
   // Generar bloqueadores simétricos en zona central
-  return [];
+  const numBlockers = Math.floor(boardSize / 2);
+  
+  for (let i = 0; i < numBlockers; i++) {
+    const row = centerStart + Math.floor(Math.random() * (centerEnd - centerStart));
+    const col = centerStart + Math.floor(Math.random() * (centerEnd - centerStart));
+    const isHorizontal = Math.random() > 0.5;
+    
+    if (isHorizontal) {
+      blockers.push({
+        from: { row, col },
+        to: { row, col: col + 1 }
+      });
+      // Simétrico
+      blockers.push({
+        from: { row: boardSize - 1 - row, col: boardSize - 1 - col },
+        to: { row: boardSize - 1 - row, col: boardSize - 1 - col - 1 }
+      });
+    } else {
+      blockers.push({
+        from: { row, col },
+        to: { row: row + 1, col }
+      });
+      // Simétrico
+      blockers.push({
+        from: { row: boardSize - 1 - row, col: boardSize - 1 - col },
+        to: { row: boardSize - 2 - row, col: boardSize - 1 - col }
+      });
+    }
+  }
+  
+  return blockers;
 }
 
 export function getValidMoves(state: GameState): Position[] {
@@ -95,7 +129,36 @@ function isValidMove(state: GameState, box: Piece, newPos: Position): boolean {
     return false;
   }
   
+  // Verificar bloqueadores
+  if (isBlockedByBlocker(state.blockers, box.position, newPos)) {
+    return false;
+  }
+  
+  // Verificar si hay pieza enemiga en destino
+  const pieceAtDestination = state.pieces.find(p => 
+    p.position.row === newPos.row && 
+    p.position.col === newPos.col &&
+    p.player !== box.player
+  );
+  
+  if (pieceAtDestination) {
+    return false;
+  }
+  
   return true;
+}
+
+function isBlockedByBlocker(blockers: Blocker[], from: Position, to: Position): boolean {
+  return blockers.some(blocker => {
+    // Verificar si el movimiento cruza el bloqueador
+    const crossesBlocker = 
+      (blocker.from.row === from.row && blocker.to.row === to.row &&
+       blocker.from.col === from.col && blocker.to.col === to.col) ||
+      (blocker.from.row === to.row && blocker.to.row === from.row &&
+       blocker.from.col === to.col && blocker.to.col === from.col);
+    
+    return crossesBlocker;
+  });
 }
 
 function isAdjacent(pos1: Position, pos2: Position): boolean {
@@ -104,16 +167,80 @@ function isAdjacent(pos1: Position, pos2: Position): boolean {
 
 export function movePiece(state: GameState, to: Position): GameState {
   const newPieces = [...state.pieces];
-  const boxIndex = newPieces.findIndex(p => p.type === 'box' && p.player === state.currentPlayer);
+  const box = newPieces.find(p => p.type === 'box' && p.player === state.currentPlayer);
   
-  if (boxIndex !== -1) {
-    newPieces[boxIndex] = { ...newPieces[boxIndex], position: to };
-  }
+  if (!box) return state;
+  
+  const from = box.position;
+  const direction = {
+    row: to.row - from.row,
+    col: to.col - from.col
+  };
+  
+  // Mover vértices empujados
+  const pushedVertices = getPushedVertices(newPieces, from, to, state.currentPlayer);
+  pushedVertices.forEach(vertex => {
+    const vIndex = newPieces.findIndex(p => p.id === vertex.id);
+    if (vIndex !== -1) {
+      newPieces[vIndex] = {
+        ...newPieces[vIndex],
+        position: {
+          row: vertex.position.row + direction.row,
+          col: vertex.position.col + direction.col
+        }
+      };
+    }
+  });
+  
+  // Mover la caja
+  const boxIndex = newPieces.findIndex(p => p.id === box.id);
+  newPieces[boxIndex] = { ...newPieces[boxIndex], position: to };
+  
+  // Verificar condiciones de victoria
+  const winner = checkWinner(newPieces, state.boardSize);
   
   return {
     ...state,
     pieces: newPieces,
     currentPlayer: state.currentPlayer === 'P1' ? 'P2' : 'P1',
-    validMoves: []
+    validMoves: [],
+    winner
   };
+}
+
+function getPushedVertices(pieces: Piece[], from: Position, to: Position, player: Player): Piece[] {
+  const pushed: Piece[] = [];
+  
+  // Verificar si hay vértices en el camino
+  const vertexAtDestination = pieces.find(p => 
+    p.type === 'vertex' && 
+    p.player === player &&
+    p.position.row === to.row && 
+    p.position.col === to.col
+  );
+  
+  if (vertexAtDestination) {
+    pushed.push(vertexAtDestination);
+  }
+  
+  return pushed;
+}
+
+function checkWinner(pieces: Piece[], boardSize: number): Player | null {
+  const p1Pieces = pieces.filter(p => p.player === 'P1');
+  const p2Pieces = pieces.filter(p => p.player === 'P2');
+  
+  // Verificar coronación total P1 (todas las piezas en esquina superior derecha)
+  const p1InGoal = p1Pieces.filter(p => p.position.row === 0 && p.position.col === boardSize - 1);
+  if (p1InGoal.length === p1Pieces.length) {
+    return 'P1';
+  }
+  
+  // Verificar coronación total P2 (todas las piezas en esquina inferior izquierda)
+  const p2InGoal = p2Pieces.filter(p => p.position.row === boardSize - 1 && p.position.col === 0);
+  if (p2InGoal.length === p2Pieces.length) {
+    return 'P2';
+  }
+  
+  return null;
 }

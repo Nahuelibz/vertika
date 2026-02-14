@@ -30,13 +30,31 @@ io.on('connection', (socket) => {
   });
   
   socket.on('joinRoom', (roomId: string) => {
-    const room = rooms.get(roomId);
-    if (room && !room.isFull()) {
+    let room = rooms.get(roomId);
+    
+    if (!room) {
+      // Crear sala si no existe
+      room = new GameRoom(roomId);
+      rooms.set(roomId, room);
+      socket.join(roomId);
+      room.addPlayer(socket.id, 'P1');
+      socket.emit('roomCreated', { player: 'P1' });
+    } else if (!room.isFull()) {
       socket.join(roomId);
       room.addPlayer(socket.id, 'P2');
+      socket.emit('playerJoined', { player: 'P2' });
       io.to(roomId).emit('gameStart', room.getState());
     } else {
-      socket.emit('error', 'Sala no disponible');
+      socket.emit('error', 'Sala llena');
+    }
+  });
+  
+  socket.on('requestMoves', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (room) {
+      const validMoves = room.getValidMoves(socket.id);
+      const state = room.getState();
+      socket.emit('gameUpdate', { ...state, validMoves });
     }
   });
   

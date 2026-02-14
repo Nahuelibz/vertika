@@ -11,3 +11,16 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
+
+@keyframes move {
+  from {
+    transform: translate(var(--from-x), var(--from-y));
+  }
+  to {
+    transform: translate(0, 0);
+  }
+}
+
+.animate-move {
+  animation: move 0.3s ease-out;
+}

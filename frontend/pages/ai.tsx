@@ -9,15 +9,24 @@ export default function AIGame() {
         <h1 className="text-3xl font-bold text-center mb-6">Jugar vs IA</h1>
         
         <div className="space-y-4">
-          <button className="w-full py-3 bg-green-500 text-white rounded hover:bg-green-600">
+          <button 
+            onClick={() => router.push('/ai/easy')}
+            className="w-full py-3 bg-green-500 text-white rounded hover:bg-green-600"
+          >
             Fácil
           </button>
           
-          <button className="w-full py-3 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+          <button 
+            onClick={() => router.push('/ai/medium')}
+            className="w-full py-3 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+          >
             Medio
           </button>
           
-          <button className="w-full py-3 bg-red-500 text-white rounded hover:bg-red-600">
+          <button 
+            onClick={() => router.push('/ai/hard')}
+            className="w-full py-3 bg-red-500 text-white rounded hover:bg-red-600"
+          >
             Difícil
           </button>
           
