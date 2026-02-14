@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Board from '@/components/Board';
 import GameInfo from '@/components/GameInfo';
 import { initializeGame, getValidMoves, movePiece } from '@/lib/gameLogic';
@@ -9,20 +9,22 @@ export default function LocalGame() {
     initializeGame({ boardSize: 6, withBlockers: false })
   );
   
-  const handleCellClick = (pos: Position) => {
-    if (gameState.validMoves.length === 0) {
-      // Mostrar movimientos válidos
+  // Mostrar movimientos válidos automáticamente al inicio de cada turno
+  useEffect(() => {
+    if (!gameState.winner && gameState.validMoves.length === 0) {
       const moves = getValidMoves(gameState);
-      setGameState({ ...gameState, validMoves: moves });
-    } else {
-      // Intentar mover
-      const isValid = gameState.validMoves.some(m => m.row === pos.row && m.col === pos.col);
-      if (isValid) {
-        const newState = movePiece(gameState, pos);
-        setGameState(newState);
-      } else {
-        setGameState({ ...gameState, validMoves: [] });
-      }
+      setGameState(prev => ({ ...prev, validMoves: moves }));
+    }
+  }, [gameState.currentPlayer, gameState.winner]);
+  
+  const handleCellClick = (pos: Position) => {
+    if (gameState.winner) return;
+    
+    // Intentar mover
+    const isValid = gameState.validMoves.some(m => m.row === pos.row && m.col === pos.col);
+    if (isValid) {
+      const newState = movePiece(gameState, pos);
+      setGameState(newState);
     }
   };
   

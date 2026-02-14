@@ -15,6 +15,15 @@ export default function AIGamePage() {
   const [aiPlayer] = useState(() => new AIPlayer((difficulty as AIDifficulty) || 'easy'));
   const [isAIThinking, setIsAIThinking] = useState(false);
   
+  // Mostrar movimientos válidos automáticamente para el jugador humano
+  useEffect(() => {
+    if (gameState.currentPlayer === 'P1' && !gameState.winner && gameState.validMoves.length === 0) {
+      const moves = getValidMoves(gameState);
+      setGameState(prev => ({ ...prev, validMoves: moves }));
+    }
+  }, [gameState.currentPlayer, gameState.winner]);
+  
+  // IA juega automáticamente
   useEffect(() => {
     if (gameState.currentPlayer === 'P2' && !gameState.winner && !isAIThinking) {
       setIsAIThinking(true);
@@ -36,17 +45,10 @@ export default function AIGamePage() {
   const handleCellClick = (pos: Position) => {
     if (gameState.currentPlayer !== 'P1' || gameState.winner || isAIThinking) return;
     
-    if (gameState.validMoves.length === 0) {
-      const moves = getValidMoves(gameState);
-      setGameState({ ...gameState, validMoves: moves });
-    } else {
-      const isValid = gameState.validMoves.some(m => m.row === pos.row && m.col === pos.col);
-      if (isValid) {
-        const newState = movePiece(gameState, pos);
-        setGameState(newState);
-      } else {
-        setGameState({ ...gameState, validMoves: [] });
-      }
+    const isValid = gameState.validMoves.some(m => m.row === pos.row && m.col === pos.col);
+    if (isValid) {
+      const newState = movePiece(gameState, pos);
+      setGameState(newState);
     }
   };
   

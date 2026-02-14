@@ -19,23 +19,25 @@ export function initializeGame(config: GameConfig): GameState {
     position: { row: 0, col: boardSize - 1 }
   });
   
-  // Crear vértices para P1
+  // Crear vértices para P1 (orientación top-right: arriba y derecha)
   for (let i = 1; i < boardSize; i++) {
     pieces.push({
       id: `vertex-p1-${i}`,
       type: 'vertex',
       player: 'P1',
-      position: { row: boardSize - 1, col: i }
+      position: { row: boardSize - 1, col: i },
+      orientation: 'top-right'
     });
   }
   
-  // Crear vértices para P2
+  // Crear vértices para P2 (orientación bottom-left: abajo e izquierda)
   for (let i = 0; i < boardSize - 1; i++) {
     pieces.push({
       id: `vertex-p2-${i}`,
       type: 'vertex',
       player: 'P2',
-      position: { row: 0, col: i }
+      position: { row: 0, col: i },
+      orientation: 'bottom-left'
     });
   }
   
@@ -210,8 +212,20 @@ export function movePiece(state: GameState, to: Position): GameState {
 
 function getPushedVertices(pieces: Piece[], from: Position, to: Position, player: Player): Piece[] {
   const pushed: Piece[] = [];
+  const direction = {
+    row: to.row - from.row,
+    col: to.col - from.col
+  };
   
-  // Verificar si hay vértices en el camino
+  // Verificar si hay vértices en el mismo casillero que la caja
+  const verticesAtBoxPosition = pieces.filter(p => 
+    p.type === 'vertex' && 
+    p.player === player &&
+    p.position.row === from.row && 
+    p.position.col === from.col
+  );
+  
+  // Verificar si hay vértices en el destino
   const vertexAtDestination = pieces.find(p => 
     p.type === 'vertex' && 
     p.player === player &&
@@ -223,7 +237,26 @@ function getPushedVertices(pieces: Piece[], from: Position, to: Position, player
     pushed.push(vertexAtDestination);
   }
   
+  // Empujar vértices que están en el mismo casillero si el movimiento es válido para su orientación
+  verticesAtBoxPosition.forEach(vertex => {
+    if (canVertexMoveInDirection(vertex, direction)) {
+      pushed.push(vertex);
+    }
+  });
+  
   return pushed;
+}
+
+function canVertexMoveInDirection(vertex: Piece, direction: { row: number; col: number }): boolean {
+  if (!vertex.orientation) return false;
+  
+  if (vertex.orientation === 'top-right') {
+    // P1: puede moverse arriba (row -1) o derecha (col +1)
+    return (direction.row === -1 && direction.col === 0) || (direction.row === 0 && direction.col === 1);
+  } else {
+    // P2: puede moverse abajo (row +1) o izquierda (col -1)
+    return (direction.row === 1 && direction.col === 0) || (direction.row === 0 && direction.col === -1);
+  }
 }
 
 function checkWinner(pieces: Piece[], boardSize: number): Player | null {

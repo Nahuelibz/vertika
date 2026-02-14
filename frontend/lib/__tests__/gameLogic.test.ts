@@ -28,13 +28,22 @@ describe('gameLogic', () => {
       expect(p2Box?.position).toEqual({ row: 0, col: 5 });
     });
     
-    it('should create N-1 vertices for each player', () => {
+    it('should create N-1 vertices for each player with correct orientation', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
       const p1Vertices = state.pieces.filter(p => p.type === 'vertex' && p.player === 'P1');
       const p2Vertices = state.pieces.filter(p => p.type === 'vertex' && p.player === 'P2');
       
       expect(p1Vertices.length).toBe(5);
       expect(p2Vertices.length).toBe(5);
+      
+      // Verificar orientaciones
+      p1Vertices.forEach(v => {
+        expect(v.orientation).toBe('top-right');
+      });
+      
+      p2Vertices.forEach(v => {
+        expect(v.orientation).toBe('bottom-left');
+      });
     });
   });
   
@@ -107,8 +116,18 @@ describe('gameLogic', () => {
       const newState = movePiece(state, vertexPos);
       const vertex = newState.pieces.find(p => p.id === 'vertex-p1-1');
       
-      // Vértice debería moverse junto con la caja
+      // Vértice debería moverse junto con la caja (derecha es válido para top-right)
       expect(vertex?.position).toEqual({ row: 5, col: 2 });
+    });
+    
+    it('should only push vertex in valid direction for its orientation', () => {
+      const state = initializeGame({ boardSize: 6, withBlockers: false });
+      
+      // Mover caja P1 hacia arriba (válido para top-right)
+      const newState = movePiece(state, { row: 4, col: 0 });
+      const p1Box = newState.pieces.find(p => p.id === 'box-p1');
+      
+      expect(p1Box?.position).toEqual({ row: 4, col: 0 });
     });
     
     it('should detect winner when all pieces reach goal', () => {

@@ -55,17 +55,23 @@ export default function RoomPage() {
     };
   }, [id]);
   
+  // Mostrar movimientos válidos automáticamente
+  useEffect(() => {
+    if (gameState && myPlayer && gameState.currentPlayer === myPlayer && 
+        !gameState.winner && gameState.validMoves.length === 0) {
+      if (socket) {
+        socket.emit('requestMoves', { roomId: id });
+      }
+    }
+  }, [gameState?.currentPlayer, myPlayer, gameState?.winner]);
+  
   const handleCellClick = (pos: Position) => {
     if (!socket || !gameState || !myPlayer) return;
     if (gameState.currentPlayer !== myPlayer) return;
     
-    if (gameState.validMoves.length === 0) {
-      socket.emit('requestMoves', { roomId: id });
-    } else {
-      const isValid = gameState.validMoves.some(m => m.row === pos.row && m.col === pos.col);
-      if (isValid) {
-        socket.emit('move', { roomId: id, position: pos });
-      }
+    const isValid = gameState.validMoves.some(m => m.row === pos.row && m.col === pos.col);
+    if (isValid) {
+      socket.emit('move', { roomId: id, position: pos });
     }
   };
   

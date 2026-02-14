@@ -1,5 +1,6 @@
 export type Player = 'P1' | 'P2';
 export type PieceType = 'box' | 'vertex';
+export type VertexOrientation = 'top-right' | 'bottom-left'; // P1: top-right, P2: bottom-left
 
 export interface Position {
   row: number;
@@ -11,6 +12,7 @@ export interface Piece {
   type: PieceType;
   player: Player;
   position: Position;
+  orientation?: VertexOrientation; // Solo para vértices
 }
 
 export interface Blocker {
