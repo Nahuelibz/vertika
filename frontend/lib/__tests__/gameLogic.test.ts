@@ -58,11 +58,21 @@ describe('gameLogic', () => {
       expect(moves.length).toBe(4);
     });
     
-    it('should return 2 valid moves for box in corner', () => {
+    it('should return 2 valid moves for box in corner (up and right to vertex)', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
       const moves = getValidMoves(state);
       
-      expect(moves.length).toBe(2); // Solo arriba y derecha
+      console.log('Initial state:');
+      console.log('P1 Box:', state.pieces.find(p => p.id === 'box-p1')?.position);
+      console.log('P1 Vertex-1:', state.pieces.find(p => p.id === 'vertex-p1-1')?.position);
+      console.log('Valid moves:', moves);
+      
+      // P1 box en (5,0) debe poder ir:
+      // 1. Arriba a (4,0)
+      // 2. Derecha a (5,1) donde hay un vértice top-right
+      expect(moves.length).toBe(2);
+      expect(moves).toContainEqual({ row: 4, col: 0 }); // arriba
+      expect(moves).toContainEqual({ row: 5, col: 1 }); // derecha (con vértice)
     });
     
     it('should not allow move to adjacent enemy box position', () => {
@@ -109,25 +119,62 @@ describe('gameLogic', () => {
       expect(newState.currentPlayer).toBe('P2');
     });
     
-    it('should push vertex when box moves to its position', () => {
+    it('should push vertex when sharing casillero and moving in valid direction', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
-      const vertexPos: Position = { row: 5, col: 1 };
       
-      const newState = movePiece(state, vertexPos);
+      // Mover caja a la derecha (válido para top-right)
+      // La caja está en (5,0) y el vértice en (5,1)
+      const newState = movePiece(state, { row: 5, col: 1 });
+      
+      // Ahora caja y vértice comparten (5,1)
+      const box = newState.pieces.find(p => p.id === 'box-p1');
       const vertex = newState.pieces.find(p => p.id === 'vertex-p1-1');
       
-      // Vértice debería moverse junto con la caja (derecha es válido para top-right)
+      expect(box?.position).toEqual({ row: 5, col: 1 });
+      expect(vertex?.position).toEqual({ row: 5, col: 1 });
+    });
+    
+    it('should move vertex with box when sharing casillero and direction is valid', () => {
+      const state = initializeGame({ boardSize: 6, withBlockers: false });
+      
+      // Primero mover caja para que comparta con vértice
+      let newState = movePiece(state, { row: 5, col: 1 });
+      
+      // Cambiar turno manualmente para seguir moviendo P1
+      newState.currentPlayer = 'P1';
+      
+      // Ahora mover a la derecha (válido para top-right)
+      newState = movePiece(newState, { row: 5, col: 2 });
+      
+      const box = newState.pieces.find(p => p.id === 'box-p1');
+      const vertex = newState.pieces.find(p => p.id === 'vertex-p1-1');
+      
+      // Ambos deberían estar en (5,2)
+      expect(box?.position).toEqual({ row: 5, col: 2 });
       expect(vertex?.position).toEqual({ row: 5, col: 2 });
     });
     
-    it('should only push vertex in valid direction for its orientation', () => {
+    it('should NOT move vertex when direction is invalid for orientation', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
       
-      // Mover caja P1 hacia arriba (válido para top-right)
-      const newState = movePiece(state, { row: 4, col: 0 });
-      const p1Box = newState.pieces.find(p => p.id === 'box-p1');
+      // Mover caja para compartir con vértice
+      let newState = movePiece(state, { row: 5, col: 1 });
+      newState.currentPlayer = 'P1';
       
-      expect(p1Box?.position).toEqual({ row: 4, col: 0 });
+      // Intentar mover hacia abajo (inválido para top-right)
+      // La caja se mueve pero el vértice no
+      const vertexBefore = newState.pieces.find(p => p.id === 'vertex-p1-1');
+      const positionBefore = { ...vertexBefore!.position };
+      
+      // Mover caja hacia la izquierda (inválido para top-right)
+      newState = movePiece(newState, { row: 5, col: 0 });
+      
+      const box = newState.pieces.find(p => p.id === 'box-p1');
+      const vertex = newState.pieces.find(p => p.id === 'vertex-p1-1');
+      
+      expect(box?.position).toEqual({ row: 5, col: 0 });
+      // Vértice debería quedarse donde estaba
+      expect(vertex?.position).toEqual(positionBefore);
     });
     
     it('should detect winner when all pieces reach goal', () => {
@@ -154,41 +201,49 @@ describe('gameLogic', () => {
   });
   
   describe('victory conditions', () => {
-    it('should detect P1 victory when all pieces in top-right corner', () => {
+    it('should detect P1 victory when all vertices are eliminated', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
       
-      state.pieces = state.pieces.map(piece => {
-        if (piece.player === 'P1') {
-          return { ...piece, position: { row: 0, col: 5 } };
-        }
-        return piece;
-      });
+      // Simular que todos los vértices de P1 llegaron al objetivo
+      state.pieces = state.pieces.filter(p => p.player === 'P2' || p.type === 'box');
       
       const newState = movePiece(state, { row: 0, col: 5 });
       expect(newState.winner).toBe('P1');
     });
     
-    it('should detect P2 victory when all pieces in bottom-left corner', () => {
+    it('should detect P2 victory when all vertices are eliminated', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
       state.currentPlayer = 'P2';
       
-      state.pieces = state.pieces.map(piece => {
-        if (piece.player === 'P2') {
-          return { ...piece, position: { row: 5, col: 0 } };
-        }
-        return piece;
-      });
+      // Simular que todos los vértices de P2 llegaron al objetivo
+      state.pieces = state.pieces.filter(p => p.player === 'P1' || p.type === 'box');
       
       const newState = movePiece(state, { row: 5, col: 0 });
       expect(newState.winner).toBe('P2');
     });
     
-    it('should not declare winner if not all pieces at goal', () => {
+    it('should remove vertices when they reach goal', () => {
       const state = initializeGame({ boardSize: 6, withBlockers: false });
       
-      // Solo mover algunas piezas al objetivo
-      state.pieces[0].position = { row: 0, col: 5 };
-      state.pieces[2].position = { row: 0, col: 5 };
+      // Mover un vértice al objetivo
+      const vertex = state.pieces.find(p => p.id === 'vertex-p1-1');
+      if (vertex) {
+        vertex.position = { row: 0, col: 5 };
+      }
+      
+      const newState = movePiece(state, { row: 0, col: 5 });
+      
+      // El vértice debería estar eliminado
+      const removedVertex = newState.pieces.find(p => p.id === 'vertex-p1-1');
+      expect(removedVertex).toBeUndefined();
+      expect(newState.eliminatedVertices).toContain('vertex-p1-1');
+    });
+    
+    it('should not declare winner if vertices remain', () => {
+      const state = initializeGame({ boardSize: 6, withBlockers: false });
+      
+      // Solo eliminar algunos vértices
+      state.pieces = state.pieces.filter(p => p.id !== 'vertex-p1-1' && p.id !== 'vertex-p1-2');
       
       const newState = movePiece(state, { row: 4, col: 0 });
       expect(newState.winner).toBeNull();

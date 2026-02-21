@@ -49,7 +49,8 @@ export function initializeGame(config: GameConfig): GameState {
     blockers,
     currentPlayer: 'P1',
     winner: null,
-    validMoves: []
+    validMoves: [],
+    eliminatedVertices: []
   };
 }
 
@@ -98,10 +99,10 @@ export function getValidMoves(state: GameState): Position[] {
   
   const moves: Position[] = [];
   const directions = [
-    { row: -1, col: 0 }, // arriba
-    { row: 1, col: 0 },  // abajo
-    { row: 0, col: -1 }, // izquierda
-    { row: 0, col: 1 }   // derecha
+    { row: -1, col: 0, name: 'up' },
+    { row: 1, col: 0, name: 'down' },
+    { row: 0, col: -1, name: 'left' },
+    { row: 0, col: 1, name: 'right' }
   ];
   
   for (const dir of directions) {
@@ -110,7 +111,7 @@ export function getValidMoves(state: GameState): Position[] {
       col: box.position.col + dir.col
     };
     
-    if (isValidMove(state, box, newPos)) {
+    if (isValidMove(state, box, newPos, dir)) {
       moves.push(newPos);
     }
   }
@@ -118,7 +119,7 @@ export function getValidMoves(state: GameState): Position[] {
   return moves;
 }
 
-function isValidMove(state: GameState, box: Piece, newPos: Position): boolean {
+function isValidMove(state: GameState, box: Piece, newPos: Position, direction: any): boolean {
   // Verificar límites del tablero
   if (newPos.row < 0 || newPos.row >= state.boardSize || 
       newPos.col < 0 || newPos.col >= state.boardSize) {
@@ -136,18 +137,67 @@ function isValidMove(state: GameState, box: Piece, newPos: Position): boolean {
     return false;
   }
   
-  // Verificar si hay pieza enemiga en destino
-  const pieceAtDestination = state.pieces.find(p => 
+  // Verificar si hay pieza enemiga en destino (caja o vértice)
+  const enemyPieceAtDestination = state.pieces.find(p => 
     p.position.row === newPos.row && 
     p.position.col === newPos.col &&
     p.player !== box.player
   );
   
-  if (pieceAtDestination) {
+  if (enemyPieceAtDestination) {
     return false;
   }
   
+  // Verificar límite de 3 cajas por casillero
+  const boxesAtDestination = state.pieces.filter(p => 
+    p.type === 'box' && 
+    p.position.row === newPos.row && 
+    p.position.col === newPos.col
+  );
+  
+  if (boxesAtDestination.length >= 3) {
+    return false;
+  }
+  
+  // Verificar si hay vértices propios en el destino
+  const verticesAtDestination = state.pieces.filter(p => 
+    p.type === 'vertex' && 
+    p.player === box.player &&
+    p.position.row === newPos.row && 
+    p.position.col === newPos.col
+  );
+  
+  // Si hay vértices, verificar que la dirección sea válida para entrar
+  if (verticesAtDestination.length > 0) {
+    for (const vertex of verticesAtDestination) {
+      if (!canEnterVertexCasillero(vertex, direction)) {
+        return false;
+      }
+    }
+  }
+  
   return true;
+}
+
+function canEnterVertexCasillero(vertex: Piece, direction: any): boolean {
+  if (!vertex.orientation) return true;
+  
+  // direction.name es la dirección del movimiento de la caja
+  // Necesitamos verificar desde qué lado entra al vértice
+  // Si la caja se mueve 'right', entra desde la 'left' del vértice
+  // Si la caja se mueve 'left', entra desde la 'right' del vértice
+  // Si la caja se mueve 'up', entra desde 'down' del vértice
+  // Si la caja se mueve 'down', entra desde 'up' del vértice
+  
+  if (vertex.orientation === 'top-right') {
+    // Vértice top-right (┐): barras en arriba y derecha
+    // Puede entrar desde abajo (caja se mueve 'up') o izquierda (caja se mueve 'right')
+    return direction.name === 'up' || direction.name === 'right';
+  } else {
+    // Vértice bottom-left (└): barras en abajo e izquierda
+    // Puede entrar desde arriba (caja se mueve 'down') o derecha (caja se mueve 'left')
+    return direction.name === 'down' || direction.name === 'left';
+  }
 }
 
 function isBlockedByBlocker(blockers: Blocker[], from: Position, to: Position): boolean {
@@ -198,15 +248,35 @@ export function movePiece(state: GameState, to: Position): GameState {
   const boxIndex = newPieces.findIndex(p => p.id === box.id);
   newPieces[boxIndex] = { ...newPieces[boxIndex], position: to };
   
+  // Eliminar vértices que llegaron al objetivo
+  let eliminatedVertices = [...(state.eliminatedVertices || [])];
+  const goalRow = state.currentPlayer === 'P1' ? 0 : state.boardSize - 1;
+  const goalCol = state.currentPlayer === 'P1' ? state.boardSize - 1 : 0;
+  
+  const verticesToRemove = newPieces.filter(p => 
+    p.type === 'vertex' && 
+    p.player === state.currentPlayer &&
+    p.position.row === goalRow && 
+    p.position.col === goalCol
+  );
+  
+  verticesToRemove.forEach(v => {
+    eliminatedVertices.push(v.id);
+  });
+  
+  // Remover vértices eliminados de la lista de piezas
+  const filteredPieces = newPieces.filter(p => !eliminatedVertices.includes(p.id));
+  
   // Verificar condiciones de victoria
-  const winner = checkWinner(newPieces, state.boardSize);
+  const winner = checkWinner(filteredPieces, state.currentPlayer);
   
   return {
     ...state,
-    pieces: newPieces,
+    pieces: filteredPieces,
     currentPlayer: state.currentPlayer === 'P1' ? 'P2' : 'P1',
     validMoves: [],
-    winner
+    winner,
+    eliminatedVertices
   };
 }
 
@@ -217,7 +287,7 @@ function getPushedVertices(pieces: Piece[], from: Position, to: Position, player
     col: to.col - from.col
   };
   
-  // Verificar si hay vértices en el mismo casillero que la caja
+  // Solo empujar vértices que están en el MISMO casillero que la caja (from)
   const verticesAtBoxPosition = pieces.filter(p => 
     p.type === 'vertex' && 
     p.player === player &&
@@ -225,19 +295,7 @@ function getPushedVertices(pieces: Piece[], from: Position, to: Position, player
     p.position.col === from.col
   );
   
-  // Verificar si hay vértices en el destino
-  const vertexAtDestination = pieces.find(p => 
-    p.type === 'vertex' && 
-    p.player === player &&
-    p.position.row === to.row && 
-    p.position.col === to.col
-  );
-  
-  if (vertexAtDestination) {
-    pushed.push(vertexAtDestination);
-  }
-  
-  // Empujar vértices que están en el mismo casillero si el movimiento es válido para su orientación
+  // Empujar solo si el movimiento es válido para la orientación del vértice
   verticesAtBoxPosition.forEach(vertex => {
     if (canVertexMoveInDirection(vertex, direction)) {
       pushed.push(vertex);
@@ -259,20 +317,12 @@ function canVertexMoveInDirection(vertex: Piece, direction: { row: number; col: 
   }
 }
 
-function checkWinner(pieces: Piece[], boardSize: number): Player | null {
-  const p1Pieces = pieces.filter(p => p.player === 'P1');
-  const p2Pieces = pieces.filter(p => p.player === 'P2');
+function checkWinner(pieces: Piece[], currentPlayer: Player): Player | null {
+  const playerVertices = pieces.filter(p => p.type === 'vertex' && p.player === currentPlayer);
   
-  // Verificar coronación total P1 (todas las piezas en esquina superior derecha)
-  const p1InGoal = p1Pieces.filter(p => p.position.row === 0 && p.position.col === boardSize - 1);
-  if (p1InGoal.length === p1Pieces.length) {
-    return 'P1';
-  }
-  
-  // Verificar coronación total P2 (todas las piezas en esquina inferior izquierda)
-  const p2InGoal = p2Pieces.filter(p => p.position.row === boardSize - 1 && p.position.col === 0);
-  if (p2InGoal.length === p2Pieces.length) {
-    return 'P2';
+  // Si el jugador actual no tiene vértices, ganó
+  if (playerVertices.length === 0) {
+    return currentPlayer;
   }
   
   return null;

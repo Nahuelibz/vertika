@@ -12,15 +12,16 @@ export default function Piece({ piece, isAnimating = false, animationStyle }: Pi
   const color = piece.player === 'P1' ? 'bg-blue-500' : 'bg-red-500';
   
   if (piece.type === 'box') {
+    // Caja más pequeña (8x8) para que quepa con vértices
     return (
       <div 
-        className={`w-12 h-12 rounded ${color} ${baseClass} ${animClass}`}
+        className={`w-8 h-8 rounded ${color} ${baseClass} ${animClass}`}
         style={animationStyle}
       />
     );
   }
   
-  // Vértice con barras
+  // Vértice con barras - ocupa todo el espacio (12x12)
   const isTopRight = piece.orientation === 'top-right';
   
   return (

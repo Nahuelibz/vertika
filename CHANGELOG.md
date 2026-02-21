@@ -1,88 +1,153 @@
 # Changelog - Mejoras Visuales y de Jugabilidad
 
-## Cambios Implementados
+## Cambios Implementados (Versión 3)
 
-### 1. Visualización de Vértices
-- **Antes**: Los vértices se mostraban como una "V" con fondo de color
-- **Ahora**: Los vértices son barras de color sin fondo:
-  - **Jugador P1 (azul)**: Barra superior + barra derecha (orientación top-right)
-  - **Jugador P2 (rojo)**: Barra inferior + barra izquierda (orientación bottom-left)
+### 1. Restricción de Entrada a Casilleros con Vértices
+- Una caja NO puede entrar a un casillero ocupado por un vértice desde direcciones que atravesarían sus barras
+- **P1 (top-right ┐)**: No puede entrar desde arriba o derecha
+- **P2 (bottom-left └)**: No puede entrar desde abajo o izquierda
+- Esto previene que la caja "atraviese" los vértices
 
-### 2. Visualización de Cajas
-- **Antes**: Cajas con fondo de color y símbolo "□"
-- **Ahora**: Cajas son cuadrados sólidos de color (sin texto)
+### 2. Límite de 3 Cajas por Casillero
+- Un máximo de 3 cajas pueden ocupar el mismo casillero
+- Si hay 3 cajas, no se puede mover otra caja a ese casillero
 
-### 3. Movimientos Válidos Automáticos
-- **Antes**: El jugador debía hacer clic para ver los movimientos válidos
-- **Ahora**: Los movimientos válidos se muestran automáticamente en verde al inicio de cada turno
-- Aplica a todos los modos: Local, Online y vs IA
+### 3. Eliminación de Vértices en Objetivo
+- Cuando un vértice llega al casillero objetivo, desaparece automáticamente
+- **P1**: Objetivo es (0, 5) - esquina superior derecha
+- **P2**: Objetivo es (5, 0) - esquina inferior izquierda
 
-### 4. Lógica de Empuje de Vértices Mejorada
-- Los vértices ahora tienen orientación (top-right o bottom-left)
-- Un vértice solo puede ser empujado en las direcciones de su orientación:
-  - **P1 (top-right)**: Solo puede moverse arriba o derecha
-  - **P2 (bottom-left)**: Solo puede moverse abajo o izquierda
-- Si una caja está en el mismo casillero que un vértice, el vértice se mueve con la caja (si la dirección es válida)
+### 4. Nueva Condición de Victoria
+- Un jugador gana cuando TODOS sus vértices han sido eliminados (llegaron al objetivo)
+- Ya no es necesario que la caja llegue al objetivo
+- Solo los vértices cuentan para la victoria
 
-### 5. Mejoras Visuales
-- Casilleros de objetivo con tonos más suaves (blue-100, red-100)
-- Movimientos válidos destacados con verde brillante y sombra
-- Barras de vértices más gruesas (2.5 unidades) para mejor visibilidad
-- Bordes redondeados en las barras de los vértices
+### 5. Visualización Mejorada
+- Los vértices NO se achican cuando comparten casillero con una caja
+- Ambas piezas se renderizan a tamaño completo en el mismo casillero
+- La caja es más pequeña (8x8) para no ocupar todo el espacio
+
+## Ejemplo de Juego Completo
+
+### Situación Inicial P1
+```
+Caja en (5,0)
+Vértice-1 en (5,1)
+Vértice-2 en (5,2)
+Vértice-3 en (5,3)
+Vértice-4 en (5,4)
+Vértice-5 en (5,5)
+```
+
+### Movimiento 1: Caja a la derecha
+```
+Resultado:
+Caja en (5,1) - comparte con Vértice-1
+Vértice-1 en (5,1)
+```
+
+### Movimiento 2: Caja a la derecha (con vértice)
+```
+Resultado:
+Caja en (5,2) - comparte con Vértice-2
+Vértice-1 en (5,2) - SE MOVIÓ con la caja
+Vértice-2 en (5,2)
+```
+
+### Movimiento 3: Caja hacia arriba (dirección válida)
+```
+Resultado:
+Caja en (4,2)
+Vértice-1 en (4,2) - SE MOVIÓ con la caja
+Vértice-2 en (5,2) - NO se movió (no estaba en el mismo casillero)
+```
+
+### Movimiento 4: Caja hacia arriba (continuar)
+```
+Resultado:
+Caja en (3,2)
+Vértice-1 en (3,2)
+```
+
+### Movimiento 5: Caja hacia arriba (llegar al objetivo)
+```
+Resultado:
+Caja en (0,2)
+Vértice-1 en (0,2)
+```
+
+### Movimiento 6: Caja a la derecha (hacia objetivo)
+```
+Resultado:
+Caja en (0,3)
+Vértice-1 en (0,3)
+```
+
+### Movimiento 7: Caja a la derecha (objetivo alcanzado)
+```
+Resultado:
+Caja en (0,5)
+Vértice-1 ELIMINADO ✓ (llegó al objetivo)
+```
+
+## Restricciones de Entrada
+
+### Vértice top-right (┐) - P1
+```
+Casillero con vértice:
+    ┌─────┐
+    │  ┐  │
+    └─────┘
+
+Entradas válidas:
+- Desde abajo ↑
+- Desde izquierda →
+
+Entradas inválidas:
+- Desde arriba ↓ (atravesaría barra superior)
+- Desde derecha ← (atravesaría barra derecha)
+```
+
+### Vértice bottom-left (└) - P2
+```
+Casillero con vértice:
+    ┌─────┐
+    │  └  │
+    └─────┘
+
+Entradas válidas:
+- Desde arriba ↑
+- Desde derecha ←
+
+Entradas inválidas:
+- Desde abajo ↓ (atravesaría barra inferior)
+- Desde izquierda ← (atravesaría barra izquierda)
+```
 
 ## Archivos Modificados
 
 ### Frontend
-- `frontend/types/game.ts` - Agregado tipo `VertexOrientation`
-- `frontend/lib/gameLogic.ts` - Lógica de empuje con orientación
-- `frontend/components/Board.tsx` - Renderizado mejorado de piezas
-- `frontend/components/Piece.tsx` - Nuevo componente para renderizar piezas
-- `frontend/pages/local.tsx` - Auto-mostrar movimientos válidos
-- `frontend/pages/ai/[difficulty].tsx` - Auto-mostrar movimientos válidos
-- `frontend/pages/room/[id].tsx` - Auto-mostrar movimientos válidos
+- `frontend/types/game.ts` - Agregado `eliminatedVertices`
+- `frontend/lib/gameLogic.ts` - Lógica de restricción de entrada y eliminación
 - `frontend/lib/__tests__/gameLogic.test.ts` - Tests actualizados
+- `frontend/components/Board.tsx` - Renderizado sin achicamiento
 
 ### Backend
-- `backend/src/gameRoom.ts` - Lógica de empuje con orientación
+- `backend/src/gameRoom.ts` - Lógica de restricción de entrada y eliminación
 
-## Cómo Probar los Cambios
+## Cómo Probar
 
-1. Inicia el juego en modo local:
 ```bash
+# Ejecutar frontend
 npm run dev:frontend
-```
 
-2. Observa que:
-   - Los vértices se muestran como barras en L
-   - Los movimientos válidos aparecen en verde automáticamente
-   - Las cajas son cuadrados sólidos de color
-   - Los vértices solo se mueven en sus direcciones válidas
-
-3. Prueba mover la caja sobre un vértice:
-   - P1: Mueve la caja hacia arriba o derecha para empujar vértices
-   - P2: Mueve la caja hacia abajo o izquierda para empujar vértices
-
-## Reglas de Movimiento de Vértices
-
-### Jugador P1 (Azul - Esquina inferior izquierda)
-- Vértices con orientación **top-right** (┐)
-- Pueden moverse: **Arriba** o **Derecha**
-- Objetivo: Esquina superior derecha
-
-### Jugador P2 (Rojo - Esquina superior derecha)
-- Vértices con orientación **bottom-left** (└)
-- Pueden moverse: **Abajo** o **Izquierda**
-- Objetivo: Esquina inferior izquierda
-
-## Tests
-
-Ejecuta los tests para verificar la lógica:
-```bash
+# Ejecutar tests
 cd frontend
 npm test
 ```
 
-Los tests verifican:
-- Orientación correcta de vértices al inicializar
-- Empuje de vértices solo en direcciones válidas
-- Movimientos válidos automáticos
+Prueba este escenario:
+1. Mueve la caja P1 a la derecha (compartirá con vértice)
+2. Intenta mover desde arriba a un casillero con vértice (debería fallar)
+3. Mueve el vértice al objetivo (debería desaparecer)
+4. Cuando todos los vértices desaparezcan, P1 gana

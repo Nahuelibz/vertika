@@ -27,6 +27,7 @@ export interface GameState {
   currentPlayer: Player;
   winner: Player | null;
   validMoves: Position[];
+  eliminatedVertices: string[]; // IDs de vértices eliminados
 }
 
 export interface GameConfig {

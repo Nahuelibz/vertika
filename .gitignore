@@ -7,3 +7,6 @@ build/
 .DS_Store
 *.log
 .vscode
+
+# MCP config (contiene tokens de API, NO commitear)
+.agent/mcp_config.json
